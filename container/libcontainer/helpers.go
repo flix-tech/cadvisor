@@ -31,6 +31,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"bytes"
 )
 
 /*
@@ -114,6 +115,29 @@ func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetri
 		CgroupStats: cgroupStats,
 	}
 	stats := newContainerStats(libcontainerStats)
+
+	if pids, err := cgroupManager.GetAllPids(); err == nil {
+
+		for _, pid := range pids {
+			f, err := os.Open("/proc/" + strconv.Itoa(pid) + "/schedstat")
+			if err != nil {
+				continue
+			}
+			defer f.Close()
+			contents, err := ioutil.ReadAll(f)
+			if err != nil {
+				continue
+			}
+			stringMetrics := bytes.Split(contents, []byte(" "))
+			runQueueTime, err := strconv.ParseUint(string(stringMetrics[1]),10,64)
+			if err != nil {
+				continue
+			}
+			stats.Cpu.Schedstat.RunqueueTime += runQueueTime
+		}
+
+	}
+
 
 	// If we know the pid then get network stats from /proc/<pid>/net/dev
 	if pid == 0 {

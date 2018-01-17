@@ -295,10 +295,16 @@ type CpuCFS struct {
 	ThrottledTime uint64 `json:"throttled_time"`
 }
 
+type CpuSchedstat struct {
+	// Total time spent waiting on a runqueue
+	RunqueueTime uint64 `json:"runqueue_time`
+}
+
 // All CPU usage metrics are cumulative from the creation of the container
 type CpuStats struct {
 	Usage CpuUsage `json:"usage"`
 	CFS   CpuCFS   `json:"cfs"`
+	Schedstat CpuSchedstat `json:"schedstat"`
 	// Smoothed average of number of runnable threads x 1000.
 	// We multiply by thousand to avoid using floats, but preserving precision.
 	// Load is smoothed over the last 10 seconds. Instantaneous value can be read
