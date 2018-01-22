@@ -28,10 +28,10 @@ import (
 	"github.com/google/cadvisor/container"
 	info "github.com/google/cadvisor/info/v1"
 
+	"bytes"
 	"github.com/golang/glog"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
-	"bytes"
 )
 
 /*
@@ -116,28 +116,15 @@ func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetri
 	}
 	stats := newContainerStats(libcontainerStats)
 
-	if pids, err := cgroupManager.GetAllPids(); err == nil {
-
-		for _, pid := range pids {
-			f, err := os.Open("/proc/" + strconv.Itoa(pid) + "/schedstat")
+	if !ignoreMetrics.Has(container.ProcessSchedulerMetrics) {
+		pids, err := cgroupManager.GetAllPids()
+		if err == nil {
+			stats.Cpu.Schedstat, err = schedulerStatsFromProcs(pids)
 			if err != nil {
-				continue
+				glog.V(4).Infof("Unable to get Process Scheduler Stats: %v", err)
 			}
-			defer f.Close()
-			contents, err := ioutil.ReadAll(f)
-			if err != nil {
-				continue
-			}
-			stringMetrics := bytes.Split(contents, []byte(" "))
-			runQueueTime, err := strconv.ParseUint(string(stringMetrics[1]),10,64)
-			if err != nil {
-				continue
-			}
-			stats.Cpu.Schedstat.RunqueueTime += runQueueTime
 		}
-
 	}
-
 
 	// If we know the pid then get network stats from /proc/<pid>/net/dev
 	if pid == 0 {
@@ -188,6 +175,43 @@ func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetri
 	}
 
 	return stats, nil
+}
+func schedulerStatsFromProcs(pids []int) (info.CpuSchedstat, error) {
+	schedstats := info.CpuSchedstat{}
+	for _, pid := range pids {
+		f, err := os.Open("/proc/" + strconv.Itoa(pid) + "/schedstat")
+		if err != nil {
+			return info.CpuSchedstat{}, fmt.Errorf("couldn't open scheduler statistics for process %d: %v", pid, err)
+		}
+		defer f.Close()
+		contents, err := ioutil.ReadAll(f)
+		if err != nil {
+			return info.CpuSchedstat{}, fmt.Errorf("couldn't read scheduler statistics for process %d: %v", pid, err)
+		}
+		rawMetrics := bytes.Split(contents, []byte(" "))
+		if len(rawMetrics) != 3 {
+			return info.CpuSchedstat{}, fmt.Errorf("unexpected number of metrics in schedstat file for process %d", pid)
+		}
+
+		runtime, err := strconv.ParseUint(string(rawMetrics[1]), 10, 64)
+		if err != nil {
+			return info.CpuSchedstat{}, fmt.Errorf("parsing error while reading scheduler statistics for process: %d: %v", pid, err)
+		}
+		schedstats.RunTime += runtime
+
+		runQueueTime, err := strconv.ParseUint(string(rawMetrics[1]), 10, 64)
+		if err != nil {
+			return info.CpuSchedstat{}, fmt.Errorf("parsing error while reading scheduler statistics for process: %d: %v", pid, err)
+		}
+		schedstats.RunqueueTime += runQueueTime
+
+		runPeriods, err := strconv.ParseUint(string(rawMetrics[1]), 10, 64)
+		if err != nil {
+			return info.CpuSchedstat{}, fmt.Errorf("parsing error while reading scheduler statistics for process: %d: %v", pid, err)
+		}
+		schedstats.RunPeriods += runPeriods
+	}
+	return schedstats, nil
 }
 
 func networkStatsFromProc(rootFs string, pid int) ([]info.InterfaceStats, error) {
