@@ -188,7 +188,7 @@ func schedulerStatsFromProcs(pids []int) (info.CpuSchedstat, error) {
 		if err != nil {
 			return info.CpuSchedstat{}, fmt.Errorf("couldn't read scheduler statistics for process %d: %v", pid, err)
 		}
-		rawMetrics := bytes.Split(contents, []byte(" "))
+		rawMetrics := bytes.Split(bytes.TrimRight(contents, "\n"), []byte(" "))
 		if len(rawMetrics) != 3 {
 			return info.CpuSchedstat{}, fmt.Errorf("unexpected number of metrics in schedstat file for process %d", pid)
 		}
