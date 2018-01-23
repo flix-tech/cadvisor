@@ -198,7 +198,7 @@ func schedulerStatsFromProcs(pids []int) (info.CpuSchedstat, error) {
 			if err != nil {
 				return info.CpuSchedstat{}, fmt.Errorf("parsing error while reading scheduler statistics for process: %d: %v", pid, err)
 			}
-			switch i{
+			switch i {
 			case 0:
 				schedstats.RunTime += metric
 			case 1:
