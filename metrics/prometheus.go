@@ -204,7 +204,7 @@ func NewPrometheusCollector(i infoProvider, f ContainerLabelsFunc) *PrometheusCo
 					return metricValues{{value: float64(s.Cpu.Schedstat.RunqueueTime) / float64(time.Second)}}
 				},
 			}, {
-				name:      "container_cpu_schedstat_run_number_of_times_total",
+				name:      "container_cpu_schedstat_run_periods_total",
 				help:      "Number of times processes of the cgroup have run on the cpu",
 				valueType: prometheus.CounterValue,
 				getValues: func(s *info.ContainerStats) metricValues {

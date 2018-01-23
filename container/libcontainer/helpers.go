@@ -193,23 +193,20 @@ func schedulerStatsFromProcs(pids []int) (info.CpuSchedstat, error) {
 			return info.CpuSchedstat{}, fmt.Errorf("unexpected number of metrics in schedstat file for process %d", pid)
 		}
 
-		runtime, err := strconv.ParseUint(string(rawMetrics[1]), 10, 64)
-		if err != nil {
-			return info.CpuSchedstat{}, fmt.Errorf("parsing error while reading scheduler statistics for process: %d: %v", pid, err)
+		for i, rawMetric := range rawMetrics {
+			metric, err := strconv.ParseUint(string(rawMetric), 10, 64)
+			if err != nil {
+				return info.CpuSchedstat{}, fmt.Errorf("parsing error while reading scheduler statistics for process: %d: %v", pid, err)
+			}
+			switch i{
+			case 0:
+				schedstats.RunTime += metric
+			case 1:
+				schedstats.RunqueueTime += metric
+			case 2:
+				schedstats.RunPeriods += metric
+			}
 		}
-		schedstats.RunTime += runtime
-
-		runQueueTime, err := strconv.ParseUint(string(rawMetrics[1]), 10, 64)
-		if err != nil {
-			return info.CpuSchedstat{}, fmt.Errorf("parsing error while reading scheduler statistics for process: %d: %v", pid, err)
-		}
-		schedstats.RunqueueTime += runQueueTime
-
-		runPeriods, err := strconv.ParseUint(string(rawMetrics[1]), 10, 64)
-		if err != nil {
-			return info.CpuSchedstat{}, fmt.Errorf("parsing error while reading scheduler statistics for process: %d: %v", pid, err)
-		}
-		schedstats.RunPeriods += runPeriods
 	}
 	return schedstats, nil
 }
