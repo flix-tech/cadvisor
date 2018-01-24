@@ -119,7 +119,7 @@ func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetri
 	if !ignoreMetrics.Has(container.ProcessSchedulerMetrics) {
 		pids, err := cgroupManager.GetAllPids()
 		if err == nil {
-			stats.Cpu.Schedstat, err = schedulerStatsFromProcs(pids)
+			stats.Cpu.Schedstat, err = schedulerStatsFromProcs(rootFs, pids)
 			if err != nil {
 				glog.V(4).Infof("Unable to get Process Scheduler Stats: %v", err)
 			}
@@ -176,10 +176,10 @@ func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetri
 
 	return stats, nil
 }
-func schedulerStatsFromProcs(pids []int) (info.CpuSchedstat, error) {
+func schedulerStatsFromProcs(rootFs string, pids []int) (info.CpuSchedstat, error) {
 	schedstats := info.CpuSchedstat{}
 	for _, pid := range pids {
-		f, err := os.Open("/proc/" + strconv.Itoa(pid) + "/schedstat")
+		f, err := os.Open(path.Join(rootFs, "proc", strconv.Itoa(pid), "schedstat"))
 		if err != nil {
 			return info.CpuSchedstat{}, fmt.Errorf("couldn't open scheduler statistics for process %d: %v", pid, err)
 		}
