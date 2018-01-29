@@ -118,7 +118,9 @@ func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetri
 
 	if !ignoreMetrics.Has(container.ProcessSchedulerMetrics) {
 		pids, err := cgroupManager.GetAllPids()
-		if err == nil {
+		if err != nil {
+			glog.V(4).Infof("Could not get PIDs for container %d: %v", pid, err)
+		} else {
 			stats.Cpu.Schedstat, err = schedulerStatsFromProcs(rootFs, pids)
 			if err != nil {
 				glog.V(4).Infof("Unable to get Process Scheduler Stats: %v", err)
