@@ -308,7 +308,7 @@ type CpuSchedstat struct {
 	RunPeriods uint64 `json:"run_periods"`
 }
 
-// All CPU usage metrics are cumulative from the creation of the container
+// CFS, Usage and LoadAverage metrics are cumulative from the creation of the container, Schedstat is the sum across the cumulative metrics of running processes
 type CpuStats struct {
 	Usage     CpuUsage     `json:"usage"`
 	CFS       CpuCFS       `json:"cfs"`
