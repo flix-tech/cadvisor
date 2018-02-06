@@ -84,6 +84,8 @@ type crioContainerHandler struct {
 
 	// container restart count
 	restartCount int
+
+	pidMetricsCache map[int]info.CpuSchedstat
 }
 
 var _ container.ContainerHandler = &crioContainerHandler{}
@@ -163,6 +165,7 @@ func newCrioContainerHandler(
 		rootfsStorageDir:   rootfsStorageDir,
 		envs:               make(map[string]string),
 		ignoreMetrics:      ignoreMetrics,
+		pidMetricsCache:    make(map[int]info.CpuSchedstat),
 	}
 
 	handler.creationTime = time.Unix(0, cInfo.CreatedTime)
@@ -286,7 +289,7 @@ func (self *crioContainerHandler) getFsStats(stats *info.ContainerStats) error {
 }
 
 func (self *crioContainerHandler) GetStats() (*info.ContainerStats, error) {
-	stats, err := containerlibcontainer.GetStats(self.cgroupManager, self.rootFs, self.pid, self.ignoreMetrics)
+	stats, err := containerlibcontainer.GetStats(self.cgroupManager, self.pidMetricsCache, self.rootFs, self.pid, self.ignoreMetrics)
 	if err != nil {
 		return stats, err
 	}

@@ -53,6 +53,8 @@ type rawContainerHandler struct {
 	ignoreMetrics container.MetricSet
 
 	pid int
+
+	pidMetricsCache map[int]info.CpuSchedstat
 }
 
 func isRootCgroup(name string) bool {
@@ -99,6 +101,7 @@ func newRawContainerHandler(name string, cgroupSubsystems *libcontainer.CgroupSu
 		rootFs:             rootFs,
 		ignoreMetrics:      ignoreMetrics,
 		pid:                pid,
+		pidMetricsCache:    make(map[int]info.CpuSchedstat),
 	}, nil
 }
 
@@ -231,7 +234,7 @@ func (self *rawContainerHandler) getFsStats(stats *info.ContainerStats) error {
 }
 
 func (self *rawContainerHandler) GetStats() (*info.ContainerStats, error) {
-	stats, err := libcontainer.GetStats(self.cgroupManager, self.rootFs, self.pid, self.ignoreMetrics)
+	stats, err := libcontainer.GetStats(self.cgroupManager, self.pidMetricsCache, self.rootFs, self.pid, self.ignoreMetrics)
 	if err != nil {
 		return stats, err
 	}

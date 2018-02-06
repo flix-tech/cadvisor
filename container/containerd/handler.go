@@ -61,6 +61,9 @@ type containerdContainerHandler struct {
 	rootFs string
 	// Filesystem handler.
 	ignoreMetrics container.MetricSet
+
+	// Schedstat metric cache
+	pidMetricsCache map[int]info.CpuSchedstat
 }
 
 var _ container.ContainerHandler = &containerdContainerHandler{}
@@ -126,6 +129,7 @@ func newContainerdContainerHandler(
 		ignoreMetrics:      ignoreMetrics,
 		pid:                int(taskPid),
 		creationTime:       cntr.CreatedAt,
+		pidMetricsCache:    make(map[int]info.CpuSchedstat),
 	}
 	// Add the name and bare ID as aliases of the container.
 	handler.labels = cntr.Labels
@@ -189,7 +193,7 @@ func (self *containerdContainerHandler) getFsStats(stats *info.ContainerStats) e
 }
 
 func (self *containerdContainerHandler) GetStats() (*info.ContainerStats, error) {
-	stats, err := containerlibcontainer.GetStats(self.cgroupManager, self.rootFs, self.pid, self.ignoreMetrics)
+	stats, err := containerlibcontainer.GetStats(self.cgroupManager, self.pidMetricsCache, self.rootFs, self.pid, self.ignoreMetrics)
 	if err != nil {
 		return stats, err
 	}

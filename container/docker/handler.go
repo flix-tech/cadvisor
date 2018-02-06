@@ -117,6 +117,8 @@ type dockerContainerHandler struct {
 
 	// container restart count
 	restartCount int
+
+	pidMetricsCache map[int]info.CpuSchedstat
 }
 
 var _ container.ContainerHandler = &dockerContainerHandler{}
@@ -228,6 +230,7 @@ func newDockerContainerHandler(
 		thinPoolWatcher:    thinPoolWatcher,
 		zfsWatcher:         zfsWatcher,
 		zfsParent:          zfsParent,
+		pidMetricsCache:    make(map[int]info.CpuSchedstat),
 	}
 
 	// We assume that if Inspect fails then the container is not known to docker.
@@ -454,7 +457,7 @@ func (self *dockerContainerHandler) getFsStats(stats *info.ContainerStats) error
 
 // TODO(vmarmol): Get from libcontainer API instead of cgroup manager when we don't have to support older Dockers.
 func (self *dockerContainerHandler) GetStats() (*info.ContainerStats, error) {
-	stats, err := containerlibcontainer.GetStats(self.cgroupManager, self.rootFs, self.pid, self.ignoreMetrics)
+	stats, err := containerlibcontainer.GetStats(self.cgroupManager, self.pidMetricsCache, self.rootFs, self.pid, self.ignoreMetrics)
 	if err != nil {
 		return stats, err
 	}

@@ -106,7 +106,7 @@ var supportedSubsystems map[string]struct{} = map[string]struct{}{
 }
 
 // Get cgroup and networking stats of the specified container
-func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetrics container.MetricSet) (*info.ContainerStats, error) {
+func GetStats(cgroupManager cgroups.Manager, pidMetricsCache map[int]info.CpuSchedstat, rootFs string, pid int, ignoreMetrics container.MetricSet) (*info.ContainerStats, error) {
 	cgroupStats, err := cgroupManager.GetStats()
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetri
 		if err != nil {
 			glog.V(4).Infof("Could not get PIDs for container %d: %v", pid, err)
 		} else {
-			stats.Cpu.Schedstat, err = schedulerStatsFromProcs(rootFs, pids)
+			stats.Cpu.Schedstat, err = schedulerStatsFromProcs(rootFs, pids, pidMetricsCache)
 			if err != nil {
 				glog.V(4).Infof("Unable to get Process Scheduler Stats: %v", err)
 			}
@@ -178,9 +178,11 @@ func GetStats(cgroupManager cgroups.Manager, rootFs string, pid int, ignoreMetri
 
 	return stats, nil
 }
-func schedulerStatsFromProcs(rootFs string, pids []int) (info.CpuSchedstat, error) {
+func schedulerStatsFromProcs(rootFs string, pids []int, pidMetricsCache map[int]info.CpuSchedstat) (info.CpuSchedstat, error) {
+	seen := make(map[int]bool, len(pids))
 	schedstats := info.CpuSchedstat{}
 	for _, pid := range pids {
+		seen[pid] = true
 		f, err := os.Open(path.Join(rootFs, "proc", strconv.Itoa(pid), "schedstat"))
 		if err != nil {
 			return info.CpuSchedstat{}, fmt.Errorf("couldn't open scheduler statistics for process %d: %v", pid, err)
@@ -194,7 +196,10 @@ func schedulerStatsFromProcs(rootFs string, pids []int) (info.CpuSchedstat, erro
 		if len(rawMetrics) != 3 {
 			return info.CpuSchedstat{}, fmt.Errorf("unexpected number of metrics in schedstat file for process %d", pid)
 		}
-
+		cacheEntry, ok := pidMetricsCache[pid]
+		if !ok {
+			cacheEntry = info.CpuSchedstat{}
+		}
 		for i, rawMetric := range rawMetrics {
 			metric, err := strconv.ParseUint(string(rawMetric), 10, 64)
 			if err != nil {
@@ -203,11 +208,22 @@ func schedulerStatsFromProcs(rootFs string, pids []int) (info.CpuSchedstat, erro
 			switch i {
 			case 0:
 				schedstats.RunTime += metric
+				cacheEntry.RunTime = metric
 			case 1:
 				schedstats.RunqueueTime += metric
+				cacheEntry.RunqueueTime = metric
 			case 2:
 				schedstats.RunPeriods += metric
+				cacheEntry.RunPeriods = metric
 			}
+		}
+		pidMetricsCache[pid] = cacheEntry
+	}
+	for k, v := range pidMetricsCache {
+		if _, ok := seen[k]; !ok {
+			schedstats.RunPeriods += v.RunPeriods
+			schedstats.RunqueueTime += v.RunqueueTime
+			schedstats.RunTime += v.RunTime
 		}
 	}
 	return schedstats, nil

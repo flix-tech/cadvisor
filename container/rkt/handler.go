@@ -70,6 +70,8 @@ type rktContainerHandler struct {
 	ignoreMetrics container.MetricSet
 
 	apiPod *rktapi.Pod
+
+	pidMetricsCache map[int]info.CpuSchedstat
 }
 
 func newRktContainerHandler(name string, rktClient rktapi.PublicAPIClient, rktPath string, cgroupSubsystems *libcontainer.CgroupSubsystems, machineInfoFactory info.MachineInfoFactory, fsInfo fs.FsInfo, rootFs string, ignoreMetrics container.MetricSet) (container.ContainerHandler, error) {
@@ -146,6 +148,7 @@ func newRktContainerHandler(name string, rktClient rktapi.PublicAPIClient, rktPa
 		rootfsStorageDir:   rootfsStorageDir,
 		ignoreMetrics:      ignoreMetrics,
 		apiPod:             apiPod,
+		pidMetricsCache:    make(map[int]info.CpuSchedstat),
 	}
 
 	if !ignoreMetrics.Has(container.DiskUsageMetrics) {
@@ -243,7 +246,7 @@ func (handler *rktContainerHandler) getFsStats(stats *info.ContainerStats) error
 }
 
 func (handler *rktContainerHandler) GetStats() (*info.ContainerStats, error) {
-	stats, err := libcontainer.GetStats(handler.cgroupManager, handler.rootFs, handler.pid, handler.ignoreMetrics)
+	stats, err := libcontainer.GetStats(handler.cgroupManager, handler.pidMetricsCache, handler.rootFs, handler.pid, handler.ignoreMetrics)
 	if err != nil {
 		return stats, err
 	}
