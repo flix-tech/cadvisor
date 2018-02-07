@@ -179,10 +179,7 @@ func GetStats(cgroupManager cgroups.Manager, pidMetricsCache map[int]info.CpuSch
 	return stats, nil
 }
 func schedulerStatsFromProcs(rootFs string, pids []int, pidMetricsCache map[int]info.CpuSchedstat) (info.CpuSchedstat, error) {
-	seen := make(map[int]bool, len(pids))
-	schedstats := info.CpuSchedstat{}
 	for _, pid := range pids {
-		seen[pid] = true
 		f, err := os.Open(path.Join(rootFs, "proc", strconv.Itoa(pid), "schedstat"))
 		if err != nil {
 			return info.CpuSchedstat{}, fmt.Errorf("couldn't open scheduler statistics for process %d: %v", pid, err)
@@ -207,24 +204,20 @@ func schedulerStatsFromProcs(rootFs string, pids []int, pidMetricsCache map[int]
 			}
 			switch i {
 			case 0:
-				schedstats.RunTime += metric
-				cacheEntry.RunTime = metric
+				cacheEntry.RunTime += metric
 			case 1:
-				schedstats.RunqueueTime += metric
-				cacheEntry.RunqueueTime = metric
+				cacheEntry.RunqueueTime += metric
 			case 2:
-				schedstats.RunPeriods += metric
-				cacheEntry.RunPeriods = metric
+				cacheEntry.RunPeriods += metric
 			}
 		}
 		pidMetricsCache[pid] = cacheEntry
 	}
-	for k, v := range pidMetricsCache {
-		if _, ok := seen[k]; !ok {
-			schedstats.RunPeriods += v.RunPeriods
-			schedstats.RunqueueTime += v.RunqueueTime
-			schedstats.RunTime += v.RunTime
-		}
+	schedstats := info.CpuSchedstat{}
+	for _, v := range pidMetricsCache {
+		schedstats.RunPeriods += v.RunPeriods
+		schedstats.RunqueueTime += v.RunqueueTime
+		schedstats.RunTime += v.RunTime
 	}
 	return schedstats, nil
 }
